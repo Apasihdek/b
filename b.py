@@ -8,7 +8,7 @@ import h3
 
 # Konfigurasi target
 target_ip = "138.201.139.144"
-target_port = 443
+target_port = 80
 
 # Fungsi untuk mengirim request HTTP/1.1
 def send_request_http1():
