@@ -16,7 +16,9 @@ def bypass_cloudflare(target_url):
         'Accept-Language': 'en-US,en;q=0.5',
         'Accept-Encoding': 'gzip, deflate',
         'Connection': 'keep-alive',
-        'Upgrade-Insecure-Requests': '1'
+        'Upgrade-Insecure-Requests': '1',
+        'X-Forwarded-For': '127.0.0.1',  # Bypass 403 dengan X-Forwarded-For
+        'X-Real-IP': '127.0.0.1'  # Bypass 403 dengan X-Real-IP
     }
     
     while True:
